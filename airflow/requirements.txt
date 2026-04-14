@@ -1,3 +1,0 @@
-pandas
-pyarrow
-pyspark==3.5.0

@@ -4,7 +4,7 @@
 
 ## Visão Geral
 
-Este projeto implementa uma plataforma de dados ponta-a-ponta baseada em arquitetura Lakehouse, com ingestão, processamento e serving de dados.
+Este projeto implementa uma plataforma de dados ponta-a-ponta baseada em arquitetura Lakehouse, com ingestão, processamento e serving de dados. A pipeline implementa idempotência, tratamento de late-arriving data via watermark lógico, suporte a schema evolution e controle completo de small files (detecção, prevenção e compaction).
 
 A solução prioriza:
 
