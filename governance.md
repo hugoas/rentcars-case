@@ -1,137 +1,103 @@
-# Governance — Rentcars Data Platform
-
-Autor: Hugo Souza
-
-## Visão Geral
-
-A plataforma foi construída seguindo arquitetura Lakehouse em estrutura Medalion, com ingestão via Spark, orquestração com Airflow e exposição via API FastAPI.
-
-O objetivo é garantir:
-
-* Governança de dados
-* Segurança
-* Controle de custos
-* Escalabilidade
+#  Governance — Rentcars Data Platform
 
 ---
 
-1. Data Lineage
+#  Data Lineage
 
 ```mermaid
 flowchart LR
-    A[raw_events.csv] --> B[Ingestão Spark]
+    A[Raw CSV] --> B[Ingestão Spark]
     B --> C[Silver Layer]
     C --> D[Gold Layer]
-    D --> E[FastAPI]
+    D --> E[API FastAPI]
 ```
 
 ---
 
-2. Data Contract — Eventos Processados
+#  Data Contract
 
-## Tabela: `events_agg`
+## Dataset: events_agg
 
-| Campo | Tipo    | Descrição         |
-| ----- | ------- | ----------------- |
-| count | integer | Número de eventos |
+| Campo | Tipo    |
+| ----- | ------- |
+| count | integer |
 
 ## SLA
 
 * Atualização: diária
-* Latência máxima: 2h
+* Latência: até 2h
 
 ## Owner
 
-* Data Team
+* Data Engineering
 
 ## Consumers
 
-* API FastAPI
-* Times de Analytics
+* API
+* Analytics
 
 ---
 
-3. Schema Evolution — raw_partner_catalog
+#  Schema Evolution
 
-## v1
+### raw_partner_catalog
 
-* id
-* name
-
-## v2
-
-* id
-* name
-* category
-
-## v3
-
-* id
-* name
-* category
-* country
-
-4. Estratégia
-
-* Backward compatible
-* Campos novos opcionais
-* Versionamento de schema
-
----
-
-5. Backup e Recuperação
+* v1: id, name
+* v2: + category
+* v3: + country
 
 ## Estratégia
 
-| Dataset | RPO | RTO   |
-| ------- | --- | ----- |
-| Raw     | 24h | 2h    |
-| Silver  | 12h | 1h    |
-| Gold    | 6h  | 30min |
+* Backward compatible
+* Campos opcionais
+* Versionamento
+
+---
+
+#  Backup e Recuperação
+
+| Camada | RPO | RTO   |
+| ------ | --- | ----- |
+| Raw    | 24h | 2h    |
+| Silver | 12h | 1h    |
+| Gold   | 6h  | 30min |
 
 ## Runbook
 
-1. Restaurar dados via versionamento S3
-2. Reprocessar pipeline via Airflow
-3. Validar integridade dos dados
+1. Restaurar via S3 versioning
+2. Reprocessar via Airflow
+3. Validar dados
 
 ---
 
-6. Segurança
+#  Segurança
 
-## Criptografia
-
-* S3 com **SSE-KMS**
-
-## IAM
-
-* Princípio de **least privilege**
-
-## PII
-
-* Mascaramento de dados sensíveis
-* Controle de acesso por role
+* Criptografia: SSE-KMS
+* IAM: least privilege
+* PII: mascaramento
 
 ---
 
-7. FinOps
+#  FinOps
 
-## Lifecycle S3
+## Custo por componente
 
-* Raw → Standard
-* Silver → Standard-IA
-* Gold → Glacier
+* S3 → baixo
+* Athena → alto risco
+* EMR/Glue → médio
 
-## Compute
+## Estratégias
 
-* Uso de Spot Instances
-* Right-sizing
+* Lifecycle S3
+* Spot instances
+* Particionamento
+* Compaction
 
 ## Tagging
 
 * team=data
+* env=prod/dev
 * product=rentcars
-* env=dev/prod
 
 ## Alertas
 
@@ -140,11 +106,6 @@ flowchart LR
 
 ---
 
-8. Conclusão
+#  Conclusão
 
-A arquitetura proposta garante:
-
-* Governança completa
-* Eficiência de custos
-* Segurança de dados
-* Escalabilidade
+A solução equilibra custo, performance e simplicidade, garantindo governança e escalabilidade.
