@@ -4,13 +4,9 @@
 
 ## Visão Geral
 
-Este projeto implementa uma plataforma de dados ponta-a-ponta baseada em arquitetura Lakehouse, com ingestão, processamento e serving de dados. A pipeline implementa idempotência, tratamento de late-arriving data via watermark lógico, suporte a schema evolution e controle completo de small files (detecção, prevenção e compaction).
+Solução end-to-end para ingestão, processamento e disponibilização de dados, priorizando simplicidade, custo e entrega funcional em ambiente controlado.
 
-A solução prioriza:
-
-* Simplicidade com entrega completa end-to-end
-* Eficiência de custos (FinOps)
-* Observabilidade e governança
+A arquitetura privilegia completude e governança sobre complexidade desnecessária, garantindo uma pipeline confiável, observável e otimizada.
 
 ---
 
@@ -21,7 +17,7 @@ Raw (CSV)
    ↓
 Spark (ETL)
    ↓
-Silver (Parquet)
+Silver (Parquet limpo e deduplicado)
    ↓
 Gold (Agregações)
    ↓
@@ -30,18 +26,17 @@ FastAPI (Serving Layer)
 
 ---
 
-# Como rodar localmente
+#  Como rodar localmente
 
 ```bash
-cd infra
-docker-compose up --build
+cd infra && docker-compose up --build
 ```
 
 Acessos:
 
 * Airflow: http://localhost:8080
 * API: http://localhost:8000/docs
-* Metrics: http://localhost:8000/metrics
+* Metrics (Prometheus): http://localhost:8000/metrics
 
 ---
 
@@ -50,6 +45,10 @@ Acessos:
 ```text
 repo-case-de-rentcars/
 ├── pipeline/
+│   ├── dags/
+│   ├── core/
+│   ├── tests/
+│   └── run_pipeline.py
 ├── api/
 ├── infra/
 ├── observability/
@@ -61,71 +60,128 @@ repo-case-de-rentcars/
 
 #  Decisões Técnicas e Trade-offs
 
-## 🔹 Spark local
+## Spark local
 
-Escolha: execução local para simplicidade
+Escolha: execução local para simplicidade e portabilidade.
 
 Trade-off:
 
 *  menor escalabilidade
-* facilidade de setup
+*  facilidade de setup
 
 ---
 
-##  Parquet ao invés de Delta Lake
+## Parquet ao invés de Delta Lake
 
-Escolha: simplicidade
+Escolha: reduzir complexidade e focar na entrega end-to-end.
 
 Trade-off:
 
-*  sem ACID
-*  menor complexidade
+* ausência de ACID
+* menor overhead operacional
 
 ---
 
-##  API lendo direto do Data Lake
+## API lendo diretamente do Data Lake
 
-Escolha: evitar banco adicional
+Escolha: evitar banco intermediário.
 
 Trade-off:
 
-*  latência maior
-*  menos custo e infraestrutura
+* maior latência
+* menor custo e menor complexidade
 
 ---
 
-##  Small Files Handling
+## Small Files Handling
 
 Implementado com:
 
-* coalesce no Spark
-* monitoramento de arquivos
+* `coalesce` no Spark (compaction)
+* controle de tamanho de arquivos (`spark.sql.files.maxPartitionBytes`)
+* métrica de arquivos por partição
+* alerta de threshold
 
-Benefício:
+Benefícios:
 
 * redução de custo no Athena
-* melhor performance
+* melhor performance de leitura
 
 ---
 
-#  Observabilidade
+# Pipeline de Dados
 
-* Métricas Prometheus (`/metrics`)
-* Logging estruturado
+## Idempotência
+
+Deduplicação por `event_id` garantindo consistência:
+
+```python
+df.dropDuplicates(["event_id"])
+```
+
+---
+
+## Late Arriving Data
+
+Tratamento via watermark lógico:
+
+```text
+Filtro baseado em data mínima de evento
+```
+
+---
+
+## Schema Evolution
+
+Suporte a evolução de schema com:
+
+```python
+.option("mergeSchema", "true")
+```
+
+---
+
+## Data Quality
+
+Valores inválidos (nulos ou negativos) são tratados na camada de transformação, garantindo consistência downstream.
+
+---
+
+# Observabilidade
+
+* Métricas expostas no padrão Prometheus
+* Logging estruturado do pipeline
 * Monitoramento de small files
+* Métricas de pipeline via `pipeline_runs.csv`
 
 ---
 
-#  Alertas
+# Alertas Implementados
 
-* Fail rate > 15%
+* Taxa de falha > 15%
 * Pipeline > 7200s
 * Streaming lag > 300s
 * Small files por partição
 
 ---
 
-#  Estimativa de Custo AWS
+# Testes
+
+## API
+
+* Health check
+* Autenticação (API Key)
+* Endpoints principais
+
+## Pipeline
+
+* Validação de duplicidade
+* Validação de valores negativos
+* Consistência dos dados processados (silver layer)
+
+---
+
+# Estimativa de Custo AWS
 
 | Serviço           | Estimativa |
 | ----------------- | ---------- |
@@ -134,48 +190,49 @@ Benefício:
 | Glue/EMR          | ~$30       |
 | Transferência     | ~$5        |
 
-##  Maior risco
+## Maior risco de custo
 
 Athena → custo baseado em dados escaneados
 
 ---
 
-#  Otimizações de Custo
+# Otimizações de Custo (FinOps)
 
 * Parquet + particionamento
-* Lifecycle S3
-* Spot Instances
-* Compaction de arquivos
+* Lifecycle S3 (Standard → IA → Glacier)
+* Uso de Spot Instances
+* Compaction para evitar small files
+* Predicate pushdown
 
 ---
 
-#  Limitações
+# Limitações
 
 * Não utiliza Delta Lake
-* Não possui cache na API
-* Pipeline não distribuído
+* Pipeline não distribuído (local Spark)
+* API sem cache
 * Terraform simplificado
 
 ---
 
-#  Melhorias Futuras
+# Melhorias Futuras
 
-* Delta Lake
-* Redis cache
+* Delta Lake / Apache Iceberg
+* Redis cache na API
 * Deploy em Kubernetes
-* CI/CD
-* Data Quality checks
+* CI/CD pipeline
+* Data Quality framework (Great Expectations)
 
 ---
 
-#  Governança
+# Governança
 
-Veja detalhes em:
+Detalhes completos em:
 
- [governance.md](./governance.md)
+[governance.md](./governance.md)
 
 ---
 
-#  Autor
+# Autor
 
 Hugo Souza
