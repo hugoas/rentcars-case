@@ -1,0 +1,4 @@
+- Fail rate > 15%
+- Pipeline duration > 7200s
+- Streaming lag > 300s
+- Small files > threshold
